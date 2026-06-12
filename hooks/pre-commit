@@ -1,0 +1,10 @@
+#!/bin/sh
+# Tier 1: Python-Review auf staged Dateien (Haiku, ~15s)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' | grep -v '^tests/' | grep -v '^migrations/')
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+echo "[Tier 1] Python-Review (Haiku)..."
+claude --model claude-haiku-4-5-20251001 \
+  -p "Run ecc:python-review on: $STAGED. Brief. Flag only: syntax errors, type issues, obvious bugs. Max 10 lines." \
+  --no-continue 2>&1

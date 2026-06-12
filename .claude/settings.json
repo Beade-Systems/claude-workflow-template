@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '' && echo '─── Workflow-Reminder ───────────────────────────' && echo 'DB geändert?    → Security-Audit aufrufen' && echo 'Feature fertig? → @qa-validator aufrufen' && echo 'Vor PR→main?    → /code-review ultra (Opus)' && echo 'Session wechseln? → /clear nicht vergessen' && echo '─────────────────────────────────────────────────'"
+          }
+        ]
+      }
+    ]
+  }
+}

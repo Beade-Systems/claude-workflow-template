@@ -1,0 +1,23 @@
+#!/bin/sh
+# Tier 2: Security + TDD parallel (Sonnet, ~45s)
+echo "[Tier 2] Security + TDD-Check (Sonnet, parallel)..."
+
+claude --model claude-sonnet-4-6 \
+  -p "Run ecc:security-scan on src/ and app files. Report ONLY: secrets, SQL injection, missing auth, CSRF. Max 15 lines." \
+  --no-continue 2>&1 &
+PID1=$!
+
+claude --model claude-sonnet-4-6 \
+  -p "Run ecc:tdd-workflow. List only functions WITHOUT tests. Max 10 lines." \
+  --no-continue 2>&1 &
+PID2=$!
+
+wait $PID1; S1=$?
+wait $PID2; S2=$?
+
+if [ $S1 -ne 0 ] || [ $S2 -ne 0 ]; then
+  printf '[Tier 2] Probleme gefunden — Push trotzdem? (y/n): '
+  read A
+  [ "$A" != "y" ] && exit 1
+fi
+exit 0
