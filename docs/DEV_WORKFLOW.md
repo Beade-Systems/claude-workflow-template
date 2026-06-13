@@ -57,6 +57,24 @@ TIER 4 — Frontend    → Sonnet → @ui-component-architect (manuell)
 | Lange Session      | /compact             | Weitermachen         |
 | Vor PR→main        | /code-review ultra   | Überspringen         |
 
+## Lernmodus
+
+Nach jedem fertigen Feature:
+```
+/erklaer-mir feature/login (src/auth/*)
+```
+Erzeugt eine kundentaugliche Erklaerung in `docs/erklaerungen/`.
+
+## Multi-Agent (optional)
+
+```bash
+# In Git Bash (nicht PowerShell):
+./agent-worktree.sh new claude feature/login
+./agent-worktree.sh new codex  feature/api-tests
+./agent-worktree.sh list
+./agent-worktree.sh done claude
+```
+
 ## Goldene Regeln
 
 1. Vor dem Coden → `superpowers:brainstorming`

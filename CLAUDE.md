@@ -30,3 +30,12 @@
 
 ## Modelle
 Haiku = Tier 1 (Commit) | Sonnet = Tier 2 + Frontend | Opus = Tier 3 PR-Audit
+
+## MCP-Pflicht
+- Vor neuer Dependency: Exa CVE-Check + exakte Version pinnen (kein `@latest`, kein `^`/`~`)
+- Bei unklarer API: DeepWiki statt raten
+- Befund melden BEVOR Code geschrieben wird
+
+## Lernmodus
+- Nach Feature: `/erklaer-mir` — kundentaugliche Erklaerung in `docs/erklaerungen/`
+- Bei Architektur-Entscheidung: eine Zeile "Begruendung fuer Kunden" notieren
