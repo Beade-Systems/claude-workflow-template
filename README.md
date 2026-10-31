@@ -49,6 +49,8 @@ docs/
 | Python 3 (fuer Hooks) | `python3 --version` | Meist vorinstalliert |
 | Git | `git --version` | `apt install git` / Git for Windows |
 | Exa API-Key (kostenlos) | — | [dashboard.exa.ai/api-keys](https://dashboard.exa.ai/api-keys) |
+| gitleaks (optional, Tier 1) | `gitleaks version` | `brew install gitleaks` / Release-Binary |
+| ruff (optional, Tier 1) | `ruff --version` | `uv tool install ruff==<version>` |
 
 ### Neues Projekt
 
@@ -130,8 +132,8 @@ claude
 | Tier | Ausloeser | Modell | Was passiert | MCP |
 |------|-----------|--------|--------------|-----|
 | 0 | Neue Dependency | — | CVE- + Doc-Check bevor installiert wird | Exa + DeepWiki |
-| 1 | `git commit` (auto) | Haiku | Schnelles Python-Review | — |
-| 2 | `git push` (auto) | Sonnet | Security-Scan + TDD parallel | Exa |
+| 1 | `git commit` (auto) | Haiku | gitleaks + ruff (blockieren), danach Python-Review (Hinweis) | — |
+| 2 | `git push` (auto) | Sonnet | `scripts/test.sh` (blockiert), danach Security- + Test-Review parallel auf dem Push-Diff | — |
 | 3 | `/code-review ultra` (manuell) | Opus | Tiefes Security- + Coverage-Audit | Exa + DeepWiki |
 | 4 | Frontend-Aenderung (manuell) | Sonnet | UI + State + Guardrails | — |
 
@@ -182,4 +184,5 @@ Drei Schutzebenen:
 | Hook blockt zu viel | `.claude/hooks/guard.sh` anpassen |
 | `permission denied` beim Hook | `chmod +x .claude/hooks/guard.sh` |
 | Git-Hook feuert nicht | `setup-hooks.sh` erneut ausfuehren |
+| Tier 2 blockt, Befund geprueft und harmlos | `TIER2_OK=1 git push` (nur manuell; Claude wird von guard.sh daran gehindert) |
 | Windows: agent-worktree.sh geht nicht | In Git Bash ausfuehren, nicht PowerShell |

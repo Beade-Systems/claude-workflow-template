@@ -1,10 +1,37 @@
 #!/bin/sh
-# Tier 1: Python-Review auf staged Dateien (Haiku, ~15s)
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' | grep -v '^tests/' | grep -v '^migrations/')
-if [ -z "$STAGED" ]; then
-  exit 0
+# Tier 1: Harte Checks (blockieren) + Python-Review (Haiku, nur Hinweis)
+# Harte Checks laufen nur, wenn das Tool installiert ist.
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$')
+FAIL=0
+
+# Secrets im Commit?
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --no-banner || FAIL=1
+else
+  echo "[Tier 1] gitleaks nicht installiert - Secret-Scan uebersprungen"
 fi
-echo "[Tier 1] Python-Review (Haiku)..."
-claude --model claude-haiku-4-5-20251001 \
-  -p "Run ecc:python-review on: $STAGED. Brief. Flag only: syntax errors, type issues, obvious bugs. Max 10 lines." \
-  --no-continue 2>&1
+
+# Lint + Format
+if [ -n "$STAGED" ]; then
+  if command -v ruff >/dev/null 2>&1; then
+    ruff check $STAGED || FAIL=1
+    ruff format --check $STAGED || FAIL=1
+  else
+    echo "[Tier 1] ruff nicht installiert - Lint uebersprungen"
+  fi
+fi
+
+if [ $FAIL -ne 0 ]; then
+  echo "[Tier 1] Commit blockiert - Fehler oben beheben."
+  exit 1
+fi
+
+# LLM-Review: nur Hinweis, blockiert nicht
+REVIEW=$(echo "$STAGED" | grep -v '^tests/' | grep -v '/tests/' | grep -v 'migrations/')
+if [ -n "$REVIEW" ] && command -v claude >/dev/null 2>&1; then
+  echo "[Tier 1] Python-Review (Haiku)..."
+  git diff --cached -- $REVIEW | claude --model claude-haiku-5-5 --no-session-persistence \
+    -p "Review this staged Python diff. Flag only: syntax errors, type issues, obvious bugs. Max 10 lines. If nothing to flag, answer 'OK'." 2>&1
+fi
+exit 0
