@@ -40,8 +40,12 @@ if [ "$TOOL" = "Bash" ] && [ -n "$CMD" ]; then
   echo "$CMD" | grep -qE 'git\s+(reset\s+--hard|clean\s+-[a-z]*f)' \
     && block "Destruktiver Git-Befehl (reset --hard / clean -f)"
 
-  # Secrets auslesen
-  echo "$CMD" | grep -qE '(cat|less|more|head|tail|grep|strings)\s+.*\.env' \
+  # Git-Hooks umgehen (nur der Mensch darf das)
+  echo "$CMD" | grep -qE '(--no-verify|TIER2_OK=)' \
+    && block "Git-Hooks umgehen (--no-verify / TIER2_OK) - nur manuell durch den Nutzer"
+
+  # Secrets auslesen (.env.example ist erlaubt)
+  echo "$CMD" | sed 's/\.env\.example//g' | grep -qE '(cat|less|more|head|tail|grep|strings)\s+.*\.env' \
     && block "Direkter Zugriff auf .env-Datei"
   echo "$CMD" | grep -qE '(cat|less|grep)\s+.*(id_rsa|id_ed25519|\.pem|\.key)\b' \
     && block "Zugriff auf private Schluessel"
@@ -55,17 +59,18 @@ if [ "$TOOL" = "Bash" ] && [ -n "$CMD" ]; then
     && block "Destruktiver DB-Befehl - manuell bestaetigen"
 
   # Dependency-Install ohne Pin
-  echo "$CMD" | grep -qE '(npm\s+i(nstall)?|pnpm\s+add|yarn\s+add|pip\s+install)\s+[^@<>=]*@(latest|next)\b' \
+  echo "$CMD" | grep -qE '(npm\s+i(nstall)?|pnpm\s+add|yarn\s+add|pip\s+install|uv\s+(add|pip\s+install))\s+[^@<>=]*@(latest|next)\b' \
     && block "Install mit @latest/@next. Erst Exa CVE-Check + exakte Version pinnen."
 
   # Dependency-Install: Erinnerung an CVE-Check
-  echo "$CMD" | grep -qE '(npm\s+i(nstall)?|pnpm\s+add|yarn\s+add|pip\s+install)\s+[a-z@]' \
+  echo "$CMD" | grep -qE '(npm\s+i(nstall)?|pnpm\s+add|yarn\s+add|pip\s+install|uv\s+(add|pip\s+install))\s+[a-z@]' \
     && echo "HINWEIS: Vor diesem Install Exa-CVE-Check durchgefuehrt? (siehe CLAUDE.md MCP-Pflicht)" >&2
 fi
 
 # -- Datei-Zugriffe pruefen (Read/Edit/Write) --
 if [ -n "$FILE" ]; then
   case "$FILE" in
+    *.env.example) ;;
     *.env|*.env.*|*id_rsa*|*id_ed25519*|*.pem|*.key|*credentials*|*secrets*)
       block "Secret-Datei: $FILE" ;;
   esac

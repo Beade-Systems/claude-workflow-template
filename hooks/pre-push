@@ -1,23 +1,62 @@
 #!/bin/sh
-# Tier 2: Security + TDD parallel (Sonnet, ~45s)
-echo "[Tier 2] Security + TDD-Check (Sonnet, parallel)..."
+# Tier 2: Tests (blockieren) + Security- und Test-Review (Sonnet, parallel)
+# Git uebergibt die Refs auf stdin - Rueckfragen lesen deshalb von /dev/tty.
+# Override nur nach eigener Pruefung: TIER2_OK=1 git push
 
-claude --model claude-sonnet-4-6 \
-  -p "Run ecc:security-scan on src/ and app files. Report ONLY: secrets, SQL injection, missing auth, CSRF. Max 15 lines." \
-  --no-continue 2>&1 &
-PID1=$!
+Z=0000000000000000000000000000000000000000
+EMPTY_TREE=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+DIFF=$(mktemp); OUT1=$(mktemp); OUT2=$(mktemp)
+trap 'rm -f "$DIFF" "$OUT1" "$OUT2"' EXIT
 
-claude --model claude-sonnet-4-6 \
-  -p "Run ecc:tdd-workflow. List only functions WITHOUT tests. Max 10 lines." \
-  --no-continue 2>&1 &
-PID2=$!
+# Diff aller zu pushenden Commits sammeln
+while read -r LREF LSHA RREF RSHA; do
+  [ "$LSHA" = "$Z" ] && continue  # Branch wird geloescht
+  if [ "$RSHA" = "$Z" ]; then
+    BASE=$(git merge-base "$LSHA" origin/HEAD 2>/dev/null || echo "$EMPTY_TREE")
+  else
+    BASE=$RSHA
+  fi
+  git diff "$BASE" "$LSHA" >> "$DIFF"
+done
 
-wait $PID1; S1=$?
-wait $PID2; S2=$?
+[ -s "$DIFF" ] || exit 0
 
-if [ $S1 -ne 0 ] || [ $S2 -ne 0 ]; then
-  printf '[Tier 2] Probleme gefunden — Push trotzdem? (y/n): '
-  read A
-  [ "$A" != "y" ] && exit 1
+# Tests: Projekt legt scripts/test.sh an
+if [ -x scripts/test.sh ]; then
+  echo "[Tier 2] Tests..."
+  if ! scripts/test.sh; then
+    echo "[Tier 2] Tests fehlgeschlagen - Push blockiert."
+    exit 1
+  fi
+fi
+
+command -v claude >/dev/null 2>&1 || { echo "[Tier 2] claude nicht gefunden - Review uebersprungen"; exit 0; }
+
+echo "[Tier 2] Security + Test-Review (Sonnet, parallel)..."
+head -c 300000 "$DIFF" | claude --model claude-sonnet-5-5 --no-session-persistence \
+  -p "Security review of this diff. Report ONLY: secrets, SQL injection, missing authentication/authorization, CSRF, tenant isolation leaks (org_id/tenant_id). Max 15 lines. Last line exactly 'STATUS: OK' or 'STATUS: FINDINGS'." \
+  > "$OUT1" 2>&1 &
+P1=$!
+head -c 300000 "$DIFF" | claude --model claude-sonnet-5-5 --no-session-persistence --allowedTools "Read,Grep,Glob" \
+  -p "For the functions added or changed in this diff, check the repository for tests. List only functions WITHOUT tests. Max 10 lines. Last line exactly 'STATUS: OK' or 'STATUS: FINDINGS'." \
+  > "$OUT2" 2>&1 &
+P2=$!
+wait $P1; S1=$?
+wait $P2; S2=$?
+
+echo "--- Security ---"; cat "$OUT1"
+echo "--- Tests ---";    cat "$OUT2"
+
+if [ $S1 -ne 0 ] || [ $S2 -ne 0 ] || grep -q 'STATUS: FINDINGS' "$OUT1" "$OUT2" \
+   || ! grep -q 'STATUS: OK' "$OUT1" || ! grep -q 'STATUS: OK' "$OUT2"; then
+  [ "$TIER2_OK" = "1" ] && { echo "[Tier 2] Override TIER2_OK=1 - Push laeuft."; exit 0; }
+  printf '[Tier 2] Probleme gefunden - Push trotzdem? (y/n): '
+  if read A < /dev/tty 2>/dev/null; then
+    [ "$A" = "y" ] && exit 0
+  else
+    echo "kein Terminal."
+  fi
+  echo "[Tier 2] Push abgebrochen."
+  exit 1
 fi
 exit 0
